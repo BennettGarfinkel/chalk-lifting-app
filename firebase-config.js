@@ -1,10 +1,9 @@
-// Paste your Firebase web app settings here.
-// Firebase console > Project settings > General > Your apps > Web app > SDK setup and configuration > Config.
-// These values are not secret. Your security rules (firestore.rules) are what protect the data.
-// Until you fill this in, Chalk runs in on-device mode with no team features.
+// Firebase settings for Chalk. These values are not secret; firestore.rules protects the data.
 window.CHALK_FIREBASE = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  appId: "YOUR_APP_ID"
+apiKey: "AIzaSyCPINCwkKZ-79vTyIqqffOtR7Px2UMw4K4",
+authDomain: "chalk-lifting-app.firebaseapp.com",
+projectId: "chalk-lifting-app",
+storageBucket: "chalk-lifting-app.firebasestorage.app",
+messagingSenderId: "1007354288926",
+appId: "1:1007354288926:web:05461f723580966cf6470f"
 };
