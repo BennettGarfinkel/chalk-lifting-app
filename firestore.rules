@@ -1,0 +1,91 @@
+rules_version = '2';
+// Chalk security rules.
+// Coach (team creator, or anyone the creator's roster marks "coach"): reads everything for their team.
+// Approved lifters: read their own full log, plus teammates' public summaries (name, 1RM PRs, last trained),
+// coach posts, programs, the team meet, and comments on their own workouts.
+// Pending members (joined with a code, not approved yet): see nothing from the team.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function me() { return get(/databases/$(database)/documents/lifters/$(uid())).data; }
+    function myTeam() { return me().get('teamId', null); }
+
+    // Approved on the team roster with one of these roles (and not before their latest join).
+    function approved(t, roles) {
+      let d = get(/databases/$(database)/documents/roster/$(t)).data.get('dec', {}).get(uid(), {'r': '', 't': 0});
+      return d.r in roles && d.t >= me().get('teamJoinAt', 0);
+    }
+    function amCoach() {
+      let t = myTeam();
+      return t != null && (uid() == t || approved(t, ['coach']));
+    }
+    function amMember() {
+      let t = myTeam();
+      return t != null && (uid() == t || approved(t, ['lifter', 'coach']));
+    }
+
+    // Full private profile: owner, or a coach of the same team.
+    match /lifters/{u} {
+      allow read: if signedIn() && (uid() == u || (resource.data.teamId == myTeam() && amCoach()));
+      allow write: if signedIn() && uid() == u;
+
+      match /workouts/{w} {
+        allow read: if signedIn() && (uid() == u ||
+          (get(/databases/$(database)/documents/lifters/$(u)).data.teamId == myTeam() && amCoach()));
+        allow write: if signedIn() && uid() == u;
+      }
+    }
+
+    // Public summary: the only thing teammates can see about each other.
+    match /public/{u} {
+      allow read: if signedIn() && (uid() == u || (resource.data.teamId == myTeam() && amMember()));
+      allow create, update: if signedIn() && uid() == u
+        && request.resource.data.keys().hasOnly(['displayName', 'role', 'teamId', 'teamJoinAt', 'setupDone', 'prs', 'lastWorkout', 'photo', 'updatedAt'])
+        && request.resource.data.teamId == myTeam();
+      allow delete: if signedIn() && uid() == u;
+    }
+
+    // Team name + join code. The doc id is the creator's user id.
+    match /teams/{t} {
+      allow get: if signedIn() && (resource == null || uid() == t || myTeam() == t);
+      allow list: if signedIn() && request.query.limit <= 1;   // join-by-code lookup
+      allow create, update, delete: if signedIn() && uid() == t;
+    }
+
+    // One roster doc per team: who is approved, and as what.
+    match /roster/{t} {
+      allow get: if signedIn() && (resource == null || myTeam() == t);
+      allow create, update: if signedIn() && myTeam() == t && amCoach() && request.resource.data.teamId == t;
+    }
+
+    // Coach announcements and assigned programs.
+    match /posts/{a}/items/{i} {
+      allow read: if signedIn() && resource.data.teamId == myTeam() && amMember();
+      allow create, update: if signedIn() && uid() == a && request.resource.data.teamId == myTeam() && amCoach();
+      allow delete: if signedIn() && uid() == a;
+    }
+    match /progs/{a}/items/{i} {
+      allow read: if signedIn() && resource.data.teamId == myTeam() && amMember();
+      allow create, update: if signedIn() && uid() == a && request.resource.data.teamId == myTeam() && amCoach();
+      allow delete: if signedIn() && uid() == a;
+    }
+
+    // Team meet set by a coach.
+    match /tmeets/{a} {
+      allow get: if signedIn() && (resource == null || uid() == a || (resource.data.teamId == myTeam() && amMember()));
+      allow create, update: if signedIn() && uid() == a && request.resource.data.teamId == myTeam() && amCoach();
+      allow delete: if signedIn() && uid() == a;
+    }
+
+    // Comments on a workout: the author, the lifter it's about, and the team's coaches.
+    match /msgs/{a}/items/{i} {
+      allow read: if signedIn() && (uid() == a || resource.data.lifterId == uid()
+        || (resource.data.teamId == myTeam() && amCoach()));
+      allow create: if signedIn() && uid() == a && request.resource.data.teamId == myTeam()
+        && (request.resource.data.lifterId == uid() || amCoach());
+      allow update, delete: if signedIn() && uid() == a;
+    }
+  }
+}
