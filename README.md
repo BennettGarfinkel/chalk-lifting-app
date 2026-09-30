@@ -2,16 +2,6 @@
 
 A powerlifting training log for teams. Lifters log workouts; coaches see everything for their team; teammates see a PR board and who's been training.
 
-It's a Progressive Web App: host it on any static site, open it on a phone, and use "Add to Home Screen" to install it.
-
-## What's in here
-
-| File | What it does |
-|---|---|
-| `index.html` | The whole app |
-| `firebase-config.js` | Your Firebase project settings (you fill this in) |
-| `firestore.rules` | Server-side security rules: who can read and write what |
-| `manifest.json`, `sw.js`, `icons/` | Make it installable and let it open offline |
 
 ## Who sees what
 
